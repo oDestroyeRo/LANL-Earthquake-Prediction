@@ -4,12 +4,14 @@ from pyspark.ml.linalg import Vectors
 from pyspark.ml.feature import VectorAssembler
 import numpy as np
 import keras, math
+from keras.utils.training_utils import multi_gpu_model
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation
 from keras.callbacks import Callback
 from keras.callbacks import ModelCheckpoint   
 import matplotlib.pyplot as plt
 import config
+from sklearn.metrics import mean_absolute_error
 
 spark = config.get_config()
 
@@ -47,15 +49,22 @@ y_test = np.array(y_test).astype('float32').reshape(-1,1)
 p_dropout = 0.25
 activation = 'relu'
 model =  Sequential()
-model.add(Dense(32, activation=activation, input_shape=(n_dim,)))
-model.add(Dropout(p_dropout))
-model.add(Dense(32, activation=activation))
+model.add(Dense(64, activation=activation, input_shape=(n_dim,)))
 model.add(Dropout(p_dropout))
 model.add(Dense(64, activation=activation))
 model.add(Dropout(p_dropout))
+model.add(Dense(128, activation=activation))
+model.add(Dropout(p_dropout))
 model.add(Dense(1))
-model = multi_gpu_model(model, gpus=2)
-model.compile(loss='mae', optimizer=keras.optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True))
+
+parallel_model = multi_gpu_model(model, gpus=2)
+parallel_model.compile(loss='mae', optimizer=keras.optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True))
 model.summary()
-checkpointer = ModelCheckpoint(filepath="model.2.0.keras.mlp.hdf5", verbose=1, save_best_only=True)
-model.fit(x_train, y_train, epochs=100, validation_data=(x_test, y_test), callbacks=[checkpointer], verbose=1)
+# checkpointer = ModelCheckpoint(filepath="model/model.2.0.keras.mlp.hdf5", verbose=1, save_best_only=True)
+parallel_model.fit(x_train, y_train, epochs=100, validation_data=(x_test, y_test), verbose=1)
+model.save('model/model.2.0.keras.mlp.hdf5')
+model.load_weights("model/model.2.0.keras.mlp.hdf5")
+y_hat = model.predict(x_test)
+
+print(y_hat)
+print(mean_absolute_error(y_test, y_hat))

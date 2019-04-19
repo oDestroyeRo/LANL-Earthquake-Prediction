@@ -180,9 +180,7 @@ def create_label(type_data):
     WHERE no = 150000
     ORDER BY seg
     """ )
-    df_target.write.mode("overwrite").parquet(os.path.join("datasets", type_data + "target.parquet"))
-
-
+    df_target.write.mode("overwrite").parquet(os.path.join("datasets", type_data + ".target.parquet"))
 
 
 df_train_test()
